@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ReraGIS.Api</RootNamespace>
+    <AssemblyName>ReraGIS.Api</AssemblyName>
+
+    <!-- Enables XML doc comments to flow into Swagger -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Suppress "missing XML comment" warnings for members we intentionally leave undocumented -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- Used by `dotnet user-secrets` for local development secrets (see README) -->
+    <UserSecretsId>b3f2b6f0-6a1b-4b3e-9a6a-reragis-api-secrets</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- JWT Bearer authentication middleware -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+
+    <!-- Token creation/validation primitives (JwtSecurityTokenHandler) -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
+
+    <!-- ADO.NET provider for SQL Server (NOT Entity Framework) -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.2" />
+
+    <!-- Swagger / OpenAPI UI with JWT "Authorize" support -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+  </ItemGroup>
+
+</Project>

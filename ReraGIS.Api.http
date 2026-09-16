@@ -1,0 +1,32 @@
+@ReraGIS.Api_HostAddress = https://localhost:7198
+
+### 1. Call the project details endpoint -- no token needed.
+# currentLogInUserId and schemeId are plain route parameters (like projectId), passed manually.
+GET {{ReraGIS.Api_HostAddress}}/api/ProjectDetailsForGIS/10/1/2
+Accept: application/json
+
+### 2. Invalid project ID -> expect 400
+GET {{ReraGIS.Api_HostAddress}}/api/ProjectDetailsForGIS/0/1/2
+Accept: application/json
+
+### 3. Invalid current login user ID -> expect 400
+GET {{ReraGIS.Api_HostAddress}}/api/ProjectDetailsForGIS/10/0/2
+Accept: application/json
+
+### 4. Invalid scheme ID -> expect 400
+GET {{ReraGIS.Api_HostAddress}}/api/ProjectDetailsForGIS/10/1/0
+Accept: application/json
+
+### 5. Unknown project ID -> expect 404
+GET {{ReraGIS.Api_HostAddress}}/api/ProjectDetailsForGIS/999999/1/2
+Accept: application/json
+
+### ---------------------------------------------------------------------------
+### The login endpoint and JWT issuing still exist in the project (AuthController,
+### JwtTokenService) but are no longer required to call ProjectDetailsForGIS.
+### Kept here in case you want to re-enable JWT-based auth later.
+### ---------------------------------------------------------------------------
+
+### 6. Log in to obtain a JWT (optional, unused by endpoint above).
+# No body needed -- username/password are hardcoded server-side.
+POST {{ReraGIS.Api_HostAddress}}/api/Auth/login
