@@ -40,20 +40,45 @@ public class ProjectDetailsForGISController : ControllerBase
         int currentLogInUserId,
         CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "GetProjectDetailsForGIS called with ProjectId {ProjectId}, CurrentLogInUserId {CurrentLogInUserId}",
+            projectId,
+            currentLogInUserId);
+
         if (projectId <= 0)
         {
+            _logger.LogWarning("GetProjectDetailsForGIS rejected invalid ProjectId {ProjectId}.", projectId);
             return BadRequest(ApiResponse<object>.FailResponse("Invalid project ID."));
         }
 
         if (currentLogInUserId <= 0)
         {
+            _logger.LogWarning(
+                "GetProjectDetailsForGIS rejected invalid CurrentLogInUserId {CurrentLogInUserId}.",
+                currentLogInUserId);
             return BadRequest(ApiResponse<object>.FailResponse("Invalid current login user ID."));
         }
 
-        ProjectDetailsQueryResult result = await _projectDetailsService.GetProjectDetailsForGISAsync(
-            projectId,
-            currentLogInUserId,
-            cancellationToken);
+        ProjectDetailsQueryResult result;
+        try
+        {
+            result = await _projectDetailsService.GetProjectDetailsForGISAsync(
+                projectId,
+                currentLogInUserId,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Logged here -- with the exact parameters that triggered it -- before rethrowing so
+            // the global exception handler in Program.cs can still turn it into the generic 500
+            // response the caller sees. This is the line to search the log file for.
+            _logger.LogError(
+                ex,
+                "GetProjectDetailsForGIS failed for ProjectId {ProjectId}, CurrentLogInUserId {CurrentLogInUserId}.",
+                projectId,
+                currentLogInUserId);
+            throw;
+        }
 
         return result.Status switch
         {

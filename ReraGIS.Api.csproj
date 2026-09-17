@@ -28,6 +28,11 @@
 
     <!-- Swagger / OpenAPI UI with JWT "Authorize" support -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+
+    <!-- Structured logging to console + rolling log files, configurable via appsettings.json -->
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.4" />
   </ItemGroup>
 
 </Project>

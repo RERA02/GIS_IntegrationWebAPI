@@ -25,50 +25,95 @@ public sealed class ProjectDetailsService : IProjectDetailsService
         int currentLogInUserId,
         CancellationToken cancellationToken)
     {
-        // `await using` guarantees the connection and command are disposed (and the connection
-        // closed/returned to the pool) even if an exception is thrown below.
-        await using SqlConnection connection = _connectionFactory.CreateConnection();
-        await using SqlCommand command = new(StoredProcedureName, connection)
+        _logger.LogDebug(
+            "Executing {StoredProcedure} with @ProjectID={ProjectId}, @CurrentLogInUserID={CurrentLogInUserId}",
+            StoredProcedureName,
+            projectId,
+            currentLogInUserId);
+
+        try
         {
-            CommandType = CommandType.StoredProcedure,
-            CommandTimeout = 30
-        };
+            // `await using` guarantees the connection and command are disposed (and the connection
+            // closed/returned to the pool) even if an exception is thrown below.
+            await using SqlConnection connection = _connectionFactory.CreateConnection();
+            await using SqlCommand command = new(StoredProcedureName, connection)
+            {
+                CommandType = CommandType.StoredProcedure,
+                CommandTimeout = 30
+            };
 
-        // Parameterized -- never string-concatenated -- so this is not susceptible to SQL injection.
-        // All three parameters are always supplied as real integers by the controller (each is
-        // route-validated to be > 0), so DBNull.Value is not needed here; it *is* used below when
-        // reading nullable result columns from the reader.        
-        // section for the SQL change needed alongside this.
-        command.Parameters.Add(new SqlParameter("@ProjectID", SqlDbType.Int) { Value = projectId });
-        command.Parameters.Add(new SqlParameter("@CurrentLogInUserID", SqlDbType.Int) { Value = currentLogInUserId });
+            // Parameterized -- never string-concatenated -- so this is not susceptible to SQL injection.
+            // All three parameters are always supplied as real integers by the controller (each is
+            // route-validated to be > 0), so DBNull.Value is not needed here; it *is* used below when
+            // reading nullable result columns from the reader.
+            // section for the SQL change needed alongside this.
+            command.Parameters.Add(new SqlParameter("@ProjectID", SqlDbType.Int) { Value = projectId });
+            command.Parameters.Add(new SqlParameter("@CurrentLogInUserID", SqlDbType.Int) { Value = currentLogInUserId });
 
-        await connection.OpenAsync(cancellationToken);
+            await connection.OpenAsync(cancellationToken);
 
-        // The procedure filters on the primary key (P.ID = @ProjectID), so a single row is expected.
-        // CommandBehavior.SingleRow is a hint that lets the provider optimize for that case.
-        await using SqlDataReader reader =
-            await command.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
+            // The procedure filters on the primary key (P.ID = @ProjectID), so a single row is expected.
+            // CommandBehavior.SingleRow is a hint that lets the provider optimize for that case.
+            await using SqlDataReader reader =
+                await command.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
 
-        if (!await reader.ReadAsync(cancellationToken))
-        {
-            return ProjectDetailsQueryResult.NotFoundResult();
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                _logger.LogInformation(
+                    "{StoredProcedure} returned no rows for ProjectID {ProjectId}.",
+                    StoredProcedureName,
+                    projectId);
+                return ProjectDetailsQueryResult.NotFoundResult();
+            }
+
+            ProjectDetailsForGISDto dto = MapToDto(reader);
+
+            // Defensive check: even though the query is expected to return at most one row, guard
+            // against a data anomaly (e.g. a future change to the procedure or underlying data)
+            // surfacing more than one row instead of silently dropping the extras.
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                _logger.LogWarning(
+                    "{StoredProcedure} returned more than one row for ProjectID {ProjectId}.",
+                    StoredProcedureName,
+                    projectId);
+                return ProjectDetailsQueryResult.MultipleRowsResult();
+            }
+
+            return ProjectDetailsQueryResult.SingleResult(dto);
         }
-
-        ProjectDetailsForGISDto dto = MapToDto(reader);
-
-        // Defensive check: even though the query is expected to return at most one row, guard
-        // against a data anomaly (e.g. a future change to the procedure or underlying data)
-        // surfacing more than one row instead of silently dropping the extras.
-        if (await reader.ReadAsync(cancellationToken))
+        catch (SqlException sqlEx)
         {
-            _logger.LogWarning(
-                "{StoredProcedure} returned more than one row for ProjectID {ProjectId}.",
+            // Covers connection failures (wrong server/credentials/firewall), a missing stored
+            // procedure, and SQL-side errors raised while it runs. sqlEx.Number is the SQL Server
+            // error number (e.g. -1/2 = connection/timeout, 2812 = procedure not found), which
+            // narrows this down a lot faster than the generic message the caller sees.
+            _logger.LogError(
+                sqlEx,
+                "SQL error {ErrorNumber} while executing {StoredProcedure} for ProjectID {ProjectId}, " +
+                    "CurrentLogInUserID {CurrentLogInUserId}: {ErrorMessage}",
+                sqlEx.Number,
                 StoredProcedureName,
-                projectId);
-            return ProjectDetailsQueryResult.MultipleRowsResult();
+                projectId,
+                currentLogInUserId,
+                sqlEx.Message);
+            throw;
         }
-
-        return ProjectDetailsQueryResult.SingleResult(dto);
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Most likely cause here: MapToDto's GetOrdinal calls throwing because an expected
+            // column ("RERA Registration Number", "Application Status", etc.) is missing from the
+            // result set -- e.g. the stored procedure on this server returns a different shape
+            // than the one this code was written against.
+            _logger.LogError(
+                ex,
+                "Unexpected error while executing {StoredProcedure} for ProjectID {ProjectId}, " +
+                    "CurrentLogInUserID {CurrentLogInUserId}.",
+                StoredProcedureName,
+                projectId,
+                currentLogInUserId);
+            throw;
+        }
     }
 
     /// <summary>

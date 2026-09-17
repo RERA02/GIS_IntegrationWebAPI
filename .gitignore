@@ -2,6 +2,7 @@ bin/
 obj/
 *.user
 appsettings.Production.json
+Logs/
 /.vs/ReraGIS.Api/config/applicationhost.config
 /.vs/ReraGIS.Api/FileContentIndex
 /.vs/ReraGIS.Api/v17/.suo
