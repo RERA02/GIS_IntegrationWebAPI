@@ -5,3 +5,7 @@ appsettings.Production.json
 /.vs/ReraGIS.Api/config/applicationhost.config
 /.vs/ReraGIS.Api/FileContentIndex
 /.vs/ReraGIS.Api/v17/.suo
+/.vs/ProjectEvaluation
+*.v2
+/.vs/ReraGIS.Api/v17/DocumentLayout.backup.json
+/.vs/ReraGIS.Api/v17/DocumentLayout.json
